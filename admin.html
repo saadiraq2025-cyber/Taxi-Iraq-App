@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة التحكم - تكسي العراق الشامل</title>
+<style>
+body{font-family:'Tahoma';background:#fff;text-align:center;}
+table{margin:auto;border-collapse:collapse;width:90%;}
+td,th{border:1px solid #ccc;padding:8px;}
+th{background:#ffeb3b;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+<script>
+const app=firebase.initializeApp({
+  apiKey:"AIzaSyD7TtwniAdUtB8-pnTny4ZwE6gqX36SGUk",
+  authDomain:"taxi-app.firebaseapp.com",
+  databaseURL:"https://taxi-app.firebaseio.com",
+  projectId:"taxi-app"
+});
+const db=firebase.database();
+</script>
+</head>
+<body>
+<h2>📋 لوحة التحكم</h2>
+<table>
+<thead><tr><th>الهاتف</th><th>من</th><th>إلى</th><th>المسافة</th><th>الأجرة</th><th>الحالة</th></tr></thead>
+<tbody id="ridesTable"></tbody>
+</table>
+
+<script>
+db.ref("rides").on("value",(snap)=>{
+ const data=snap.val()||{};
+ const tbody=document.getElementById("ridesTable");
+ tbody.innerHTML="";
+ Object.keys(data).forEach(id=>{
+   const r=data[id];
+   const row=`<tr>
+   <td>${r.riderPhone}</td>
+   <td>${r.start}</td>
+   <td>${r.end}</td>
+   <td>${r.distance} كم</td>
+   <td>${r.fare} د.ع</td>
+   <td>${r.status}</td></tr>`;
+   tbody.innerHTML+=row;
+ });
+});
+</script>
+</body>
+</html>

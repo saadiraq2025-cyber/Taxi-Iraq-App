@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>السائق - تكسي العراق الشامل</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+<style>
+body,html{margin:0;padding:0;height:100%;font-family:Tahoma;background:#f5f5f5;}
+#map{height:80vh;}
+#panel{background:#fff;text-align:center;padding:10px;box-shadow:0 -2px 5px rgba(0,0,0,0.2);}
+h3{color:#2e7d32;margin:5px 0;}
+button{background:#fdd835;border:none;padding:10px 20px;border-radius:8px;font-weight:bold;cursor:pointer;margin:5px;}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <h3>🚖 لوحة السائق</h3>
+  <div id="rideInfo">بانتظار الرحلات...</div>
+  <button id="endRide" disabled>🚗 إنهاء الرحلة</button>
+</div>
+
+<script>
+const app=firebase.initializeApp({
+  apiKey:"AIzaSyBZy7GTKn62CqeXAgm2fLrXI67P4Lc4Q3M",
+  authDomain:"taxi-15314.firebaseapp.com",
+  databaseURL:"https://taxi-15314-default-rtdb.firebaseio.com/",
+  projectId:"taxi-15314"
+});
+const db=firebase.database();
+
+let map=L.map('map').setView([33.3152,44.3661],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+let driverMarker=null;
+navigator.geolocation.getCurrentPosition(pos=>{
+  const coords=[pos.coords.latitude,pos.coords.longitude];
+  driverMarker=L.marker(coords).addTo(map).bindPopup("📍 موقعي الحالي").openPopup();
+  map.setView(coords,15);
+});
+
+const rideInfo=document.getElementById("rideInfo");
+const endBtn=document.getElementById("endRide");
+let routeControl=null;
+let beepInterval=null;
+let driverStatus="available"; // حالة السائق (متاح/مشغول)
+let activeRideId=null;
+
+// 🔊 صوت متقطع
+function startBeep(){
+  stopBeep();
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  beepInterval=setInterval(()=>{
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type="sine";osc.frequency.value=800;
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.start();
+    setTimeout(()=>osc.stop(),300);
+  },2000);
+  setTimeout(stopBeep,15000);
+}
+function stopBeep(){
+  if(beepInterval){clearInterval(beepInterval);beepInterval=null;}
+}
+
+// 🟢 وظيفة مراقبة الرحلات
+function watchForRides(){
+  firebase.database().ref("rides").on("child_added",snap=>{
+    const ride=snap.val();
+    const id=snap.key;
+
+    // لا يستقبل إذا مشغول
+    if(driverStatus==="busy") return;
+
+    if(ride.status==="جديدة"){
+      startBeep();
+      rideInfo.innerHTML=`
+        🚖 <b>رحلة جديدة</b><br>
+        من (${ride.start[0].toFixed(4)}, ${ride.start[1].toFixed(4)})<br>
+        إلى (${ride.end[0].toFixed(4)}, ${ride.end[1].toFixed(4)})<br>
+        المسافة: ${ride.distance} كم<br>
+        الأجرة: ${ride.fare} د.ع<br><br>
+        <button id="acceptRide">✅ قبول</button>
+        <button id="rejectRide">❌ رفض</button>
+      `;
+
+      // ✅ قبول الرحلة
+      document.getElementById("acceptRide").onclick=()=>{
+        stopBeep();
+        driverStatus="busy"; // يصبح مشغول
+        activeRideId=id;
+
+        firebase.database().ref("rides/"+id).update({
+          status:"مقبولة",
+          notification:"✅ تم قبول الرحلة من قبل سائق آخر"
+        });
+
+        rideInfo.innerHTML=`
+          ✅ تم قبول الرحلة<br>
+          الراكب: ${ride.riderPhone}<br>
+          المسافة: ${ride.distance} كم<br>
+          الأجرة: ${ride.fare} د.ع
+        `;
+        endBtn.disabled=false;
+
+        // 🗺️ رسم المسار عبر الطرق
+        if(routeControl){map.removeControl(routeControl);}
+        navigator.geolocation.getCurrentPosition(pos=>{
+          const driverPos=[pos.coords.latitude,pos.coords.longitude];
+          routeControl=L.Routing.control({
+            waypoints:[
+              L.latLng(driverPos[0],driverPos[1]),
+              L.latLng(ride.end[0],ride.end[1])
+            ],
+            router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1'}),
+            lineOptions:{styles:[{color:'blue',opacity:0.8,weight:5}]},
+            addWaypoints:false,
+            fitSelectedRoutes:true,
+            show:false
+          }).addTo(map);
+        });
+      };
+
+      // ❌ رفض الرحلة
+      document.getElementById("rejectRide").onclick=()=>{
+        stopBeep();
+        firebase.database().ref("rides/"+id).update({
+          status:"مرفوضة",
+          notification:"❌ السائق رفض الرحلة"
+        });
+        rideInfo.innerHTML="🚕 تم رفض الرحلة — بانتظار طلب جديد.";
+      };
+    }
+  });
+
+  // 🔔 إذا تم قبول الرحلة من سائق آخر
+  firebase.database().ref("rides").on("child_changed", snapshot => {
+    const updated = snapshot.val();
+    if (updated.status === "مقبولة" && driverStatus==="available") {
+      stopBeep();
+      rideInfo.innerHTML = "🚕 تم قبول الرحلة من قبل سائق آخر — بانتظار رحلة جديدة...";
+      if (routeControl) { map.removeControl(routeControl); }
+      endBtn.disabled = true;
+    }
+  });
+}
+
+watchForRides(); // تشغيل المراقبة عند البداية
+
+// 🚗 إنهاء الرحلة
+endBtn.onclick=()=>{
+  if(!activeRideId) return;
+  stopBeep();
+  firebase.database().ref("rides/"+activeRideId).update({
+    status:"منتهية",
+    notification:"🚗 تم إنهاء الرحلة"
+  });
+  if(routeControl){map.removeControl(routeControl);}
+  endBtn.disabled=true;
+  rideInfo.innerHTML="🚗 تم إنهاء الرحلة. بانتظار طلب جديد...";
+  driverStatus="available"; // يعود متاح
+  activeRideId=null;
+};
+</script>
+</body>
+</html>

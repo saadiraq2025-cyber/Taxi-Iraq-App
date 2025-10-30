@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تكسي العراق الشامل</title>
+  <style>
+    body {
+      font-family: "Tahoma", sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    header {
+      position: absolute;
+      top: 15px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      color: #2e7d32;
+    }
+    .container {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      padding: 25px;
+      width: 320px;
+      text-align: center;
+    }
+    h2 {
+      color: #2e7d32;
+      margin-bottom: 10px;
+    }
+    input, select {
+      width: 90%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      text-align: center;
+    }
+    button {
+      width: 95%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      background: #fdd835;
+      color: #000;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #ffee58;
+    }
+    .switch {
+      color: #2e7d32;
+      margin-top: 15px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>🚕 تكسي العراق</header>
+
+  <div class="container" id="loginBox">
+    <h2>تسجيل الدخول</h2>
+    <input type="text" id="loginPhone" placeholder="رقم الهاتف">
+    <input type="password" id="loginPassword" placeholder="كلمة المرور">
+    <button onclick="login()">دخول</button>
+    <button onclick="adminLogin()">👑 دخول الأدمن</button>
+    <div class="switch" onclick="showRegister()">ليس لديك حساب؟ إنشاء حساب جديد</div>
+  </div>
+
+  <div class="container" id="registerBox" style="display:none;">
+    <h2>إنشاء حساب</h2>
+    <input type="text" id="regPhone" placeholder="رقم الهاتف">
+    <input type="password" id="regPassword" placeholder="كلمة المرور">
+    <select id="regType">
+      <option value="rider">راكب</option>
+      <option value="driver">سائق</option>
+    </select>
+    <button onclick="register()">تسجيل</button>
+    <div class="switch" onclick="showLogin()">لديك حساب؟ تسجيل الدخول</div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+
+  <script>
+    function adminLogin(){
+      const pass = prompt("أدخل كلمة مرور الأدمن:");
+      if(pass === "12312344@"){
+        window.location.href = "admin.html";
+      } else {
+        alert("❌ كلمة المرور غير صحيحة");
+      }
+    }
+  </script>
+</body>
+</html>
